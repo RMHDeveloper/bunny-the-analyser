@@ -35,7 +35,7 @@ CLI needed for local work.
 
 ## Deploy (Vercel)
 
-1. Import the repo in Vercel. Set **Root Directory** to `bunny-the-analyzer`.
+1. Import the repo in Vercel (Root Directory is the repo root — leave it as `./`).
 2. Add environment variables in the Vercel project settings:
    - `GEMINI_API_KEY` – your Gemini key (required)
    - `ALLOWED_ORIGINS` – your production URL, e.g. `https://your-app.vercel.app`
