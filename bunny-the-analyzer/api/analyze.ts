@@ -23,6 +23,14 @@ The Persona Generation Logic by Industry:
 - Manufacturing / Logistics: Include a "Boots-on-the-ground" Operations Manager, a Sustainability Consultant, and a Supply Chain Director.
 - Education / Academia: Include a struggling Adjunct Professor, an EdTech Founder, and a University Career Coach.
 - Retail / E-commerce: Include a DTC Founder, a Retail Associate, and a Customer Experience (CX) Director.
+- Artificial Intelligence / ML: Include a skeptical ML Research Scientist, an "AI thought leader" who reposts everything, and a pragmatic Head of Data tired of hype.
+- Cybersecurity: Include a burned-out SOC Analyst, a vendor-wary CISO, and an ethical hacker / researcher who calls out FUD.
+- Climate / CleanTech: Include a climate scientist skeptical of greenwashing, a CleanTech VC chasing returns, and a policy / ESG advisor.
+- Web3 / Crypto: Include a "wagmi" maximalist, a skeptical traditional-finance quant, and a builder focused on real utility over price talk.
+- Gaming / Esports: Include a jaded AAA Game Developer, an indie studio founder, and a brand-partnerships manager sizing up sponsorship value.
+- Creator Economy / Media: Include a full-time Content Creator watching for algorithm angles, a talent-agency manager, and a brand marketer evaluating creator ROI.
+- Real Estate / PropTech: Include a traditional commercial broker skeptical of software, a PropTech founder, and an institutional real-estate investor.
+- HR / Future of Work: Include a skeptical People Ops leader, an HR-tech founder, and a remote-work advocate wary of "return to office" spin.
 - General: Include a Career Coach, a "LinkedIn Influencer," and a Corporate Recruiter.
 
 Always ensure the total number of personas generated is between 5 and 7, and they are distinct for the chosen industry.

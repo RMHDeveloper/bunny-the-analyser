@@ -4,15 +4,33 @@ import { analyzeLinkedInPost } from './services/geminiService';
 import { PersonaAnalysis } from './types';
 import PersonaResult from './components/PersonaResult';
 
-const INDUSTRY_OPTIONS = [
-  'General',
-  'Tech / SaaS',
-  'Healthcare / Pharma',
-  'Finance / Banking',
-  'Creative / Marketing',
-  'Manufacturing / Logistics',
-  'Education / Academia',
-  'Retail / E-commerce',
+const INDUSTRY_GROUPS: { label: string; options: string[] }[] = [
+  {
+    label: 'Core',
+    options: [
+      'General',
+      'Tech / SaaS',
+      'Healthcare / Pharma',
+      'Finance / Banking',
+      'Creative / Marketing',
+      'Manufacturing / Logistics',
+      'Education / Academia',
+      'Retail / E-commerce',
+    ],
+  },
+  {
+    label: 'Trending',
+    options: [
+      'Artificial Intelligence / ML',
+      'Cybersecurity',
+      'Climate / CleanTech',
+      'Web3 / Crypto',
+      'Gaming / Esports',
+      'Creator Economy / Media',
+      'Real Estate / PropTech',
+      'HR / Future of Work',
+    ],
+  },
 ];
 
 const App: React.FC = () => {
@@ -100,10 +118,14 @@ const App: React.FC = () => {
               <option value="" disabled>
                 -- Choose an Industry --
               </option>
-              {INDUSTRY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+              {INDUSTRY_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
 
