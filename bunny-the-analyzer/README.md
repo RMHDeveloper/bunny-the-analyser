@@ -20,18 +20,18 @@ browser  ──►  /api/analyze  (serverless function, holds GEMINI_API_KEY)  �
 
 ## Run locally
 
-**Prerequisites:** Node.js, and the [Vercel CLI](https://vercel.com/docs/cli)
-(`npm i -g vercel`) so the `/api` function runs alongside the Vite dev server.
+**Prerequisites:** Node.js.
 
 1. Install dependencies:
    `npm install`
 2. Put your key in `.env.local` (this file is git-ignored):
    `GEMINI_API_KEY=your-key-here`
-3. Run the app (frontend + function):
-   `vercel dev`
+3. Run the app:
+   `npm run dev` → http://localhost:3000
 
-Plain `npm run dev` runs only the frontend; the analyze call will 404 without
-`vercel dev`.
+`vite.config.ts` runs `api/analyze.ts` as dev middleware, so `npm run dev`
+serves the frontend and the `/api/analyze` endpoint on the same port. No Vercel
+CLI needed for local work.
 
 ## Deploy (Vercel)
 
