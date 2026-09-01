@@ -46,13 +46,20 @@ function devApi(): Plugin {
 }
 
 export default defineConfig(({ command, mode }) => {
-  // Load GEMINI_API_KEY from .env.local into the dev server process only.
-  // It is used server-side by the middleware above and is never sent to the
+  // Load server-side env vars from .env.local into the dev server process only.
+  // They are used server-side by the middleware above and never sent to the
   // client (no `define`, no VITE_ prefix).
   if (command === 'serve') {
     const env = loadEnv(mode, '.', '');
-    if (env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
-      process.env.GEMINI_API_KEY = env.GEMINI_API_KEY;
+    const serverKeys = [
+      'GEMINI_API_KEY',
+      'GEMINI_MODEL',
+      'OPENROUTER_API_KEY',
+      'OPENROUTER_MODEL',
+      'ALLOWED_ORIGINS',
+    ];
+    for (const key of serverKeys) {
+      if (env[key] && !process.env[key]) process.env[key] = env[key];
     }
   }
 

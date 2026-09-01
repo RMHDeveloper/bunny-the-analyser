@@ -2,8 +2,8 @@ import { PersonaAnalysis } from '../types';
 
 /**
  * Sends a LinkedIn post draft to our own backend (/api/analyze), which holds the
- * Gemini API key and performs the analysis server-side. The key is never present
- * in the browser.
+ * OpenRouter API key and performs the analysis server-side. The key is never
+ * present in the browser.
  *
  * @param postContent The draft of the LinkedIn post to analyze.
  * @param selectedIndustry The industry relevant to the post.

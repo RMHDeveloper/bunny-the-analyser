@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import { analyzeLinkedInPost } from './services/geminiService';
+import { analyzeLinkedInPost } from './services/analysisService';
 import { PersonaAnalysis } from './types';
 import PersonaResult from './components/PersonaResult';
 
