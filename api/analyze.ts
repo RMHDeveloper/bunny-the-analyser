@@ -4,20 +4,27 @@ import type { PersonaAnalysis } from '../types';
 /**
  * Server-side proxy for the LLM call.
  *
- * Provider is chosen by which key is set (Gemini wins if both are):
- *   - GEMINI_API_KEY      -> Google Gemini REST API
- *   - OPENROUTER_API_KEY  -> OpenRouter (OpenAI-compatible)
+ * The actual provider call now goes through the shared dashboard proxy
+ * (DASHBOARD_PROXY_URL), which holds the real Gemini / OpenRouter API keys
+ * centrally and picks which provider to use for this app (slug
+ * "bunny-the-analyser"). This app no longer holds a provider key itself.
  *
- * The key lives ONLY here, as an environment variable set in the Vercel
- * dashboard (or .env.local for local dev). It is never sent to the browser and
+ * We still build both a Gemini-shaped and an OpenRouter-shaped request body
+ * (the dashboard proxy forwards whatever body we send verbatim to whichever
+ * provider it has configured), and try the Gemini shape first, falling back
+ * to the OpenRouter shape on failure — this preserves the original
+ * dual-provider behavior without this app needing to know which provider is
+ * configured on the dashboard side.
+ *
+ * The key lives ONLY on the dashboard now. It is never sent to the browser and
  * never bundled into the frontend. The client calls POST /api/analyze instead of
  * calling the model provider directly.
  */
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'z-ai/glm-5.2:free';
 const MAX_POST_LENGTH = 5000;
+const APP_SLUG = 'bunny-the-analyser';
 
 const systemInstruction = `Act as a panel of distinct LinkedIn personas. I will provide an industry and a draft of a LinkedIn post. Based on the provided industry, you will generate 5-7 relevant and distinct personas. For each persona, provide a name, their archetype, a 2-sentence bio of their role, seniority, and what motivates them on LinkedIn, their raw first-person gut reaction, a likelihood to engage score (1-10) for liking or commenting, and a specific verdict explaining their engagement.
 
@@ -147,37 +154,49 @@ class ProviderError extends Error {
   }
 }
 
-/** Returns the raw JSON text produced by the model. */
-async function callGemini(userPrompt: string, apiKey: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-  const resp = await fetch(url, {
+/** POSTs `body` to the shared dashboard proxy for this app and returns the parsed JSON. */
+async function callDashboardProxy(body: unknown): Promise<any> {
+  const proxyUrl = (process.env.DASHBOARD_PROXY_URL || '').trim();
+  const proxySecret = (process.env.DASHBOARD_PROXY_SECRET || '').trim();
+  if (!proxyUrl || !proxySecret) {
+    throw new ProviderError(500, 'Server is not configured (missing DASHBOARD_PROXY_URL/DASHBOARD_PROXY_SECRET).');
+  }
+
+  const resp = await fetch(`${proxyUrl}/api/proxy/${APP_SLUG}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemInstruction }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: 0.9,
-        responseMimeType: 'application/json',
-        responseSchema: geminiSchema,
-      },
-    }),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-proxy-secret': proxySecret,
+    },
+    body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
     const detail = await resp.text();
-    console.error('Gemini call failed:', resp.status, detail);
-    const msg = safeParse(detail)?.error?.message as string | undefined;
+    console.error('Dashboard proxy call failed:', resp.status, detail);
+    const msg = safeParse(detail)?.error as string | undefined;
     if (resp.status === 429) {
-      throw new ProviderError(429, msg || 'Gemini rate limit / quota exceeded. Try again later.');
-    }
-    if (resp.status === 400 && /API key not valid/i.test(msg || '')) {
-      throw new ProviderError(500, 'The Gemini API key is invalid.');
+      throw new ProviderError(429, msg || 'Rate limit / quota exceeded. Try again later.');
     }
     throw new ProviderError(502, 'Failed to analyze the post. Please try again.');
   }
 
-  const data = await resp.json();
+  return resp.json();
+}
+
+/** Returns the raw JSON text produced by the model, via the dashboard proxy, Gemini body shape. */
+async function callGemini(userPrompt: string): Promise<string> {
+  const data = await callDashboardProxy({
+    model: GEMINI_MODEL,
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      temperature: 0.9,
+      responseMimeType: 'application/json',
+      responseSchema: geminiSchema,
+    },
+  });
+
   const text: string | undefined = data?.candidates?.[0]?.content?.parts
     ?.map((p: any) => p?.text)
     .filter(Boolean)
@@ -186,50 +205,21 @@ async function callGemini(userPrompt: string, apiKey: string): Promise<string> {
   return text;
 }
 
-/** Returns the raw JSON text produced by the model. */
-async function callOpenRouter(userPrompt: string, apiKey: string): Promise<string> {
-  const resp = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
-      'X-Title': 'Bunny the Analyzer',
+/** Returns the raw JSON text produced by the model, via the dashboard proxy, OpenRouter body shape. */
+async function callOpenRouter(userPrompt: string): Promise<string> {
+  const completion = await callDashboardProxy({
+    model: OPENROUTER_MODEL,
+    temperature: 0.9,
+    messages: [
+      { role: 'system', content: systemInstruction },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'persona_panel', strict: true, schema: jsonSchema },
     },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      temperature: 0.9,
-      messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: { name: 'persona_panel', strict: true, schema: jsonSchema },
-      },
-    }),
   });
 
-  if (!resp.ok) {
-    const detail = await resp.text();
-    console.error('OpenRouter call failed:', resp.status, detail);
-    const msg = safeParse(detail)?.error?.message as string | undefined;
-    if (resp.status === 429) {
-      throw new ProviderError(
-        429,
-        msg || 'The model provider rate limit was hit. Add credits to your OpenRouter account or try again later.',
-      );
-    }
-    if (resp.status === 402) {
-      throw new ProviderError(
-        402,
-        'The OpenRouter account is out of credits. Add credits at https://openrouter.ai/settings/credits.',
-      );
-    }
-    throw new ProviderError(502, 'Failed to analyze the post. Please try again.');
-  }
-
-  const completion = await resp.json();
   const content: string | undefined = completion?.choices?.[0]?.message?.content?.trim();
   if (!content) throw new ProviderError(502, 'Empty response from the model.');
   return content;
@@ -253,10 +243,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
   }
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-  if (!geminiKey && !openRouterKey) {
-    console.error('Neither GEMINI_API_KEY nor OPENROUTER_API_KEY is set on the server.');
+  if (!process.env.DASHBOARD_PROXY_URL || !process.env.DASHBOARD_PROXY_SECRET) {
+    console.error('DASHBOARD_PROXY_URL / DASHBOARD_PROXY_SECRET is not set on the server.');
     return res.status(500).json({ error: 'Server is not configured.' });
   }
 
@@ -279,9 +267,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userPrompt = `Input:\nIndustry: ${selectedIndustry}\nPost Draft: ${postContent}`;
 
   try {
-    const raw = geminiKey
-      ? await callGemini(userPrompt, geminiKey)
-      : await callOpenRouter(userPrompt, openRouterKey as string);
+    let raw: string;
+    try {
+      raw = await callGemini(userPrompt);
+    } catch (err) {
+      // The dashboard proxy may have this app's slug configured for
+      // OpenRouter rather than Gemini — retry with the OpenRouter body shape
+      // before giving up, preserving the original dual-provider behavior.
+      raw = await callOpenRouter(userPrompt);
+    }
 
     // Some models wrap JSON in ```json fences despite the schema request.
     const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');

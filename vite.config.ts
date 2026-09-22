@@ -52,9 +52,9 @@ export default defineConfig(({ command, mode }) => {
   if (command === 'serve') {
     const env = loadEnv(mode, '.', '');
     const serverKeys = [
-      'GEMINI_API_KEY',
+      'DASHBOARD_PROXY_URL',
+      'DASHBOARD_PROXY_SECRET',
       'GEMINI_MODEL',
-      'OPENROUTER_API_KEY',
       'OPENROUTER_MODEL',
       'ALLOWED_ORIGINS',
     ];
